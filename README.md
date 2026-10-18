@@ -1,7 +1,7 @@
-# Ethos | Script Hub (Aether)
+# Eclipse Hub 
 Have Multiple Games | Join the Discord Server for updates regarding the scripts !
 ## Links 🔗
-Discord - https://discord.gg/ZRfJ7kdGDv
+Discord - https://discord.gg/uyM5Jd8knb
 
 ## Usage
 
