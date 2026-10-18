@@ -1,5 +1,10 @@
 --// Eclipse Hub - Build a Boat [1.5]
 
+if getgenv().EclipseHubLoaded then
+    return
+end
+getgenv().EclipseHubLoaded = true
+
 if getgenv().Rejoined then
     getgenv().Rejoined = nil
     task.wait(7)
@@ -126,6 +131,7 @@ local restoreNoClip
 
 --// Register Cleanup hooks when Window is destroyed
 Window:Cleanup(function()
+	getgenv().EclipseHubLoaded = false
     disableFly()
     restoreNoClip()
 end)
