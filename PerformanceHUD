@@ -11,6 +11,7 @@ local TeleportService  = game:GetService("TeleportService")
 
 local lp = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local cam = workspace.CurrentCamera
+local targetPlaceId = 8304191830 -- Anime Adventures lobby
 
 if CoreGui:FindFirstChild("PerformanceHUD") then
     CoreGui["PerformanceHUD"]:Destroy()
@@ -368,7 +369,7 @@ end)
 
 local function triggerRejoin()
     if not autoRejoinEnabled then return end
-    print("Disconnection detected! Attempting to rejoin current place...")
+    print("Disconnection detected! Attempting to rejoin Anime Adventures lobby...")
     task.wait(1)
     
     pcall(function()
@@ -381,7 +382,7 @@ local function triggerRejoin()
     
     while autoRejoinEnabled do
         pcall(function()
-            TeleportService:Teleport(game.PlaceId, lp)
+            TeleportService:Teleport(targetPlaceId, lp)
         end)
         task.wait(2)
     end
@@ -407,4 +408,4 @@ task.spawn(function()
     end)
 end)
 
-print("PerformanceHUD Loaded!")
+print("PerformanceHUD; Loaded!")
