@@ -1,3 +1,12 @@
+--// Auto-Execute
+pcall(function()
+    if queue_on_teleport then
+        queue_on_teleport([[
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/TKyoka/Eclipse-Hub/refs/heads/main/PerformanceHUD"))()
+        ]])
+    end
+end)
+
 --// Core Services
 local Players          = game:GetService("Players")
 local RunService       = game:GetService("RunService")
@@ -371,14 +380,6 @@ local function triggerRejoin()
     if not autoRejoinEnabled then return end
     print("Disconnection detected! Attempting to rejoin Anime Adventures lobby...")
     task.wait(1)
-    
-    pcall(function()
-        if queue_on_teleport then
-            queue_on_teleport([[
-                loadstring(game:HttpGet("https://raw.githubusercontent.com/TKyoka/Eclipse-Hub/refs/heads/main/PerformanceHUD"))()
-            ]])
-        end
-    end)
     
     while autoRejoinEnabled do
         pcall(function()
