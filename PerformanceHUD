@@ -9,14 +9,7 @@ local TweenService     = game:GetService("TweenService")
 local ContentProvider  = game:GetService("ContentProvider")
 local TeleportService  = game:GetService("TeleportService")
 
---// Seamless Cleanup
-for _, child in ipairs(CoreGui:GetChildren()) do
-    if child.Name == "PerformanceHUD" then
-        child:Destroy()
-    end
-end
-
---// Safe Auto-Execute
+--// Auto-Execute
 pcall(function()
     if queue_on_teleport then
         local env = getgenv()
@@ -28,6 +21,13 @@ pcall(function()
         end
     end
 end)
+
+--// Seamless Cleanup
+for _, child in ipairs(CoreGui:GetChildren()) do
+    if child.Name == "PerformanceHUD" then
+        child:Destroy()
+    end
+end
 
 local lp = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local cam = workspace.CurrentCamera
