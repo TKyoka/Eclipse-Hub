@@ -16,13 +16,16 @@ for _, child in ipairs(CoreGui:GetChildren()) do
     end
 end
 
---// Auto-Execute
+--// Safe Auto-Execute
 pcall(function()
-    if queue_on_teleport and not getgenv().PerformanceHUD_Queued then
-        getgenv().PerformanceHUD_Queued = true
-        queue_on_teleport([[
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/TKyoka/Eclipse-Hub/refs/heads/main/PerformanceHUD"))()
-        ]])
+    if queue_on_teleport then
+        local env = getgenv()
+        if not env._EclipseHub_LastQueued or (tick() - env._EclipseHub_LastQueued > 10) then
+            env._EclipseHub_LastQueued = tick()
+            queue_on_teleport([[
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/TKyoka/Eclipse-Hub/refs/heads/main/PerformanceHUD"))()
+            ]])
+        end
     end
 end)
 
