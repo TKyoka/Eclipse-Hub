@@ -1,8 +1,16 @@
---// Auto-Execute
+--// Prevent multiple instances from running simultaneously across re-executes
+if _G.PerformanceHUD_Running then
+    return
+end
+_G.PerformanceHUD_Running = true
+
+--// Auto-Execute Queue (Queues only once safely on initialization)
 pcall(function()
     if queue_on_teleport then
         queue_on_teleport([[
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/TKyoka/Eclipse-Hub/refs/heads/main/PerformanceHUD"))()
+            if not _G.PerformanceHUD_Running then
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/TKyoka/Eclipse-Hub/refs/heads/main/PerformanceHUD"))()
+            end
         ]])
     end
 end)
@@ -22,6 +30,7 @@ local lp = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local cam = workspace.CurrentCamera
 local targetPlaceId = 8304191830 -- Anime Adventures lobby
 
+--// Restored Cleanup: Instantly destroys any leftover HUD instance from previous runs
 if CoreGui:FindFirstChild("PerformanceHUD") then
     CoreGui["PerformanceHUD"]:Destroy()
 end
@@ -376,8 +385,11 @@ AutoRejoinContainer.MouseButton1Click:Connect(function()
     end
 end)
 
+local isTeleporting = false
 local function triggerRejoin()
-    if not autoRejoinEnabled then return end
+    if not autoRejoinEnabled or isTeleporting then return end
+    isTeleporting = true
+    
     print("Disconnection detected! Attempting to rejoin Anime Adventures lobby...")
     task.wait(1)
     
@@ -385,7 +397,7 @@ local function triggerRejoin()
         pcall(function()
             TeleportService:Teleport(targetPlaceId, lp)
         end)
-        task.wait(2)
+        task.wait(6) 
     end
 end
 
