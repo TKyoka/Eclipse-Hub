@@ -16,7 +16,8 @@ for _, child in ipairs(CoreGui:GetChildren()) do
     end
 end
 
---// Auto-Execute 
+--// Auto-Execute
+pcall(function()
     if queue_on_teleport then
         queue_on_teleport([[
             loadstring(game:HttpGet("https://raw.githubusercontent.com/TKyoka/Eclipse-Hub/refs/heads/main/PerformanceHUD"))()
@@ -52,6 +53,7 @@ end
 local ScreenGui = Instance.new("ScreenGui", CoreGui)
 ScreenGui.Name = "PerformanceHUD"
 
+-- Clean up connections when GUI is destroyed
 track(ScreenGui.Destroying:Connect(function()
     for _, conn in ipairs(connections) do
         if conn.Connected then conn:Disconnect() end
