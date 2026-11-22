@@ -1,20 +1,3 @@
---// Prevent multiple instances from running simultaneously across re-executes
-if _G.PerformanceHUD_Running then
-    return
-end
-_G.PerformanceHUD_Running = true
-
---// Auto-Execute Queue (Queues only once safely on initialization)
-pcall(function()
-    if queue_on_teleport then
-        queue_on_teleport([[
-            if not _G.PerformanceHUD_Running then
-                loadstring(game:HttpGet("https://raw.githubusercontent.com/TKyoka/Eclipse-Hub/refs/heads/main/PerformanceHUD"))()
-            end
-        ]])
-    end
-end)
-
 --// Core Services
 local Players          = game:GetService("Players")
 local RunService       = game:GetService("RunService")
@@ -26,13 +9,30 @@ local TweenService     = game:GetService("TweenService")
 local ContentProvider  = game:GetService("ContentProvider")
 local TeleportService  = game:GetService("TeleportService")
 
+--// Seamless Cleanup
+for _, child in ipairs(CoreGui:GetChildren()) do
+    if child.Name == "PerformanceHUD" then
+        child:Destroy()
+    end
+end
+
+--// Auto-Execute 
+    if queue_on_teleport then
+        queue_on_teleport([[
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/TKyoka/Eclipse-Hub/refs/heads/main/PerformanceHUD"))()
+        ]])
+    end
+end)
+
 local lp = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local cam = workspace.CurrentCamera
 local targetPlaceId = 8304191830 -- Anime Adventures lobby
 
---// Restored Cleanup: Instantly destroys any leftover HUD instance from previous runs
-if CoreGui:FindFirstChild("PerformanceHUD") then
-    CoreGui["PerformanceHUD"]:Destroy()
+--// Connection Tracker to prevent memory leaks
+local connections = {}
+local function track(conn)
+    table.insert(connections, conn)
+    return conn
 end
 
 local fontAsset = Instance.new("TextLabel")
@@ -51,6 +51,12 @@ end
 
 local ScreenGui = Instance.new("ScreenGui", CoreGui)
 ScreenGui.Name = "PerformanceHUD"
+
+track(ScreenGui.Destroying:Connect(function()
+    for _, conn in ipairs(connections) do
+        if conn.Connected then conn:Disconnect() end
+    end
+end))
 
 local COLOR_BG = Color3.fromRGB(18, 22, 35)
 local COLOR_ACCENT = Color3.fromRGB(80, 150, 210)
@@ -123,7 +129,12 @@ ToastLabel.TextTransparency = 1
 ToastLabel.ZIndex = 1
 
 local activeToastTween = nil
+local toastId = 0
+
 local function showToast(message, color)
+    toastId += 1
+    local currentToastId = toastId
+    
     ToastLabel.Text = message
     ToastLabel.TextColor3 = color or COLOR_TEXT
     
@@ -150,7 +161,7 @@ local function showToast(message, color)
     fadeInLabel:Play()
     
     task.delay(1.8, function()
-        if ToastLabel.Text == message then
+        if currentToastId == toastId then
             activeToastTween = TweenService:Create(ToastContainer, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
                 Position = hiddenPos,
                 Size = UDim2.new(0, 220, 0, 26),
@@ -165,7 +176,7 @@ local function showToast(message, color)
             fadeOutLabel:Play()
             
             activeToastTween.Completed:Connect(function()
-                if ToastContainer.BackgroundTransparency >= 0.95 then
+                if ToastContainer.BackgroundTransparency >= 0.95 and currentToastId == toastId then
                     ToastContainer.Visible = false
                 end
             end)
@@ -173,11 +184,10 @@ local function showToast(message, color)
     end)
 end
 
-local function createSection(name, xPos, width, text, showSep)
+local function createSection(name, width, text, showSep)
     local container = Instance.new("Frame", MainFrame)
     container.Name = name
     container.Size = UDim2.new(0, width, 1, 0)
-    container.Position = UDim2.new(0, xPos, 0, 0)
     container.BackgroundTransparency = 1
     container.ZIndex = 2
     
@@ -204,11 +214,10 @@ local function createSection(name, xPos, width, text, showSep)
     return label, container
 end
 
-local function createButtonSection(name, xPos, width, text, showSep)
+local function createButtonSection(name, width, text, showSep)
     local container = Instance.new("TextButton", MainFrame)
     container.Name = name
     container.Size = UDim2.new(0, width, 1, 0)
-    container.Position = UDim2.new(0, xPos, 0, 0)
     container.BackgroundTransparency = 1
     container.AutoButtonColor = false
     container.Text = ""
@@ -239,12 +248,23 @@ local function createButtonSection(name, xPos, width, text, showSep)
     return label, container
 end
 
-local NameLabel, NameContainer = createButtonSection("NameSection", 0, 105, lp.Name or "Player", true)
-local FpsLabel = createSection("FpsSection", 105, 75, '<font color="rgb(110,130,160)">FPS</font> <font color="rgb(235,245,255)">--</font>', true)
+-- Use UIListLayout for clean automatic flow
+local UIListLayout = Instance.new("UIListLayout", MainFrame)
+UIListLayout.FillDirection = Enum.FillDirection.Horizontal
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+local NameLabel, NameContainer = createButtonSection("NameSection", 105, lp.Name or "Player", true)
+NameContainer.LayoutOrder = 1
+
+local FpsLabel = createSection("FpsSection", 75, '<font color="rgb(110,130,160)">FPS</font> <font color="rgb(235,245,255)">--</font>', true)
+FpsLabel.Parent.LayoutOrder = 2
 FpsLabel.RichText = true
 
-local StatusLabel, StatusContainer = createButtonSection("StatusSection", 180, 110, "Anti AFK", true)
-local AutoRejoinLabel, AutoRejoinContainer = createButtonSection("AutoRejoinSection", 290, 110, "Auto Rejoin", true)
+local StatusLabel, StatusContainer = createButtonSection("StatusSection", 110, "Anti AFK", true)
+StatusContainer.LayoutOrder = 3
+
+local AutoRejoinLabel, AutoRejoinContainer = createButtonSection("AutoRejoinSection", 110, "Auto Rejoin", true)
+AutoRejoinContainer.LayoutOrder = 4
 
 local activeStateSequence = strokeWaveSequence
 local inactiveStateSequence = ColorSequence.new({
@@ -256,14 +276,16 @@ local inactiveStateSequence = ColorSequence.new({
 local StatusGradient = createWaveGradient(StatusLabel, activeStateSequence)
 local AutoRejoinGradient = createWaveGradient(AutoRejoinLabel, activeStateSequence)
 
-local PingLabel = createSection("PingSection", 400, 75, '<font color="rgb(110,130,160)">Ping</font> <font color="rgb(235,245,255)">--</font>', true)
+local PingLabel = createSection("PingSection", 75, '<font color="rgb(110,130,160)">Ping</font> <font color="rgb(235,245,255)">--</font>', true)
+PingLabel.Parent.LayoutOrder = 5
 PingLabel.RichText = true
 
-local _, ClockContainer = createSection("ClockSection", 475, 105, "00:00:00", false)
+local _, ClockContainer = createSection("ClockSection", 105, "00:00:00", false)
+ClockContainer.LayoutOrder = 6
 local ClockLabel = ClockContainer:FindFirstChildOfClass("TextLabel")
 
 local nameHidden = false
-NameContainer.MouseButton1Click:Connect(function()
+track(NameContainer.MouseButton1Click:Connect(function()
     nameHidden = not nameHidden
     if nameHidden then
         NameLabel.Text = "Hidden"
@@ -272,11 +294,11 @@ NameContainer.MouseButton1Click:Connect(function()
         NameLabel.Text = lp.Name or "Player"
         showToast("Username Visible", COLOR_TEXT)
     end
-end)
+end))
 
-local dragging, dragInput, dragStart, startPos
+local dragging, dragStart, startPos
 
-MainFrame.InputBegan:Connect(function(input)
+track(MainFrame.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         local mousePos = UserInputService:GetMouseLocation()
         
@@ -294,16 +316,10 @@ MainFrame.InputBegan:Connect(function(input)
             startPos = MainFrame.Position
         end
     end
-end)
+end))
 
-UserInputService.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
+track(UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
         local delta = input.Position - dragStart
         MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         
@@ -311,16 +327,16 @@ UserInputService.InputChanged:Connect(function(input)
             ToastContainer.Position = UDim2.new(MainFrame.Position.X.Scale, MainFrame.Position.X.Offset, MainFrame.Position.Y.Scale, MainFrame.Position.Y.Offset + 42)
         end
     end
-end)
+end))
 
-UserInputService.InputEnded:Connect(function(input)
+track(UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = false
     end
-end)
+end))
 
 local lastUpdate, frameCount = tick(), 0
-RunService.RenderStepped:Connect(function()
+track(RunService.RenderStepped:Connect(function()
     frameCount += 1
     local now = tick()
     if now - lastUpdate >= 1 then
@@ -334,10 +350,10 @@ RunService.RenderStepped:Connect(function()
     for _, grad in ipairs(activeWaveGradients) do
         grad.Offset = offsetVal
     end
-end)
+end))
 
 task.spawn(function()
-    while true do
+    while ScreenGui.Parent do
         pcall(function()
             local ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
             PingLabel.Text = '<font color="rgb(110,130,160)">Ping</font> <font color="rgb(235,245,255)">' .. ping .. '</font>'
@@ -347,14 +363,14 @@ task.spawn(function()
 end)
 
 task.spawn(function()
-    while true do
+    while ScreenGui.Parent do
         ClockLabel.Text = os.date("%H:%M:%S")
         task.wait(1)
     end
 end)
 
 local antiAfkEnabled = true
-StatusContainer.MouseButton1Click:Connect(function()
+track(StatusContainer.MouseButton1Click:Connect(function()
     antiAfkEnabled = not antiAfkEnabled
     if antiAfkEnabled then
         StatusGradient.Color = activeStateSequence
@@ -363,18 +379,18 @@ StatusContainer.MouseButton1Click:Connect(function()
         StatusGradient.Color = inactiveStateSequence
         showToast("Anti-AFK: Disabled", Color3.fromRGB(200, 110, 120))
     end
-end)
+end))
 
-lp.Idled:Connect(function()
+track(lp.Idled:Connect(function()
     if not antiAfkEnabled then return end
     VirtualUser:CaptureController()
     VirtualUser:Button2Down(Vector2.new(0, 0), cam.CFrame)
     task.wait(1)
     VirtualUser:Button2Up(Vector2.new(0, 0), cam.CFrame)
-end)
+end))
 
 local autoRejoinEnabled = true
-AutoRejoinContainer.MouseButton1Click:Connect(function()
+track(AutoRejoinContainer.MouseButton1Click:Connect(function()
     autoRejoinEnabled = not autoRejoinEnabled
     if autoRejoinEnabled then
         AutoRejoinGradient.Color = activeStateSequence
@@ -383,13 +399,10 @@ AutoRejoinContainer.MouseButton1Click:Connect(function()
         AutoRejoinGradient.Color = inactiveStateSequence
         showToast("Auto-Rejoin: Disabled", Color3.fromRGB(200, 110, 120))
     end
-end)
+end))
 
-local isTeleporting = false
 local function triggerRejoin()
-    if not autoRejoinEnabled or isTeleporting then return end
-    isTeleporting = true
-    
+    if not autoRejoinEnabled then return end
     print("Disconnection detected! Attempting to rejoin Anime Adventures lobby...")
     task.wait(1)
     
@@ -397,7 +410,7 @@ local function triggerRejoin()
         pcall(function()
             TeleportService:Teleport(targetPlaceId, lp)
         end)
-        task.wait(6) 
+        task.wait(2)
     end
 end
 
@@ -413,11 +426,11 @@ task.spawn(function()
             task.spawn(triggerRejoin)
         end
         
-        promptOverlay.ChildAdded:Connect(function(child)
+        track(promptOverlay.ChildAdded:Connect(function(child)
             if child.Name == "ErrorPrompt" then
                 triggerRejoin()
             end
-        end)
+        end))
     end)
 end)
 
